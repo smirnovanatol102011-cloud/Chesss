@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Шахматы</title>
+    <script src="https://cloudflare.com"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #18181b;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: sans-serif;
+            user-select: none;
+        }
+        #status {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 11vw);
+            grid-template-rows: repeat(8, 11vw);
+            max-width: 360px;
+            max-height: 360px;
+            border: 4px solid #3f3f46;
+            border-radius: 6px;
+        }
+        .square {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8.5vw;
+            cursor: pointer;
+        }
+        @media (min-width: 400px) {
+            #board { grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); }
+            .square { font-size: 34px; }
+        }
+        .white-sq { background-color: #ebecd0; }
+        .black-sq { background-color: #779556; }
+        .selected { background-color: #f6f669 !important; }
+        .piece-w { color: #ffffff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+        .piece-b { color: #000000; }
+        button {
+            margin-top: 20px;
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Ваш ход (Белые)</div>
+    <div id="board"></div>
+    <button onclick="resetGame()">Начать заново</button>
+
+    <script>
+        const game = new Chess();
+        const boardEl = document.getElementById('board');
+        const statusEl = document.getElementById('status');
+        let selectedSquare = null;
+
+        const pieces = {
+            'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+            'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
+        };
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const board = game.board();
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const sqName = String.fromCharCode(97 + c) + (8 - r);
+                    const sqDiv = document.createElement('div');
+                    sqDiv.className = 'square ' + ((r + c) % 2 === 0 ? 'white-sq' : 'black-sq');
+                    if (selectedSquare === sqName) sqDiv.classList.add('selected');
+                    
+                    const piece = board[r][c];
+                    if (piece) {
+                        const char = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
+                        sqDiv.innerText = pieces[char];
+                        sqDiv.classList.add(piece.color === 'w' ? 'piece-w' : 'piece-b');
+                    }
+                    
+                    sqDiv.onclick = () => onSquareClick(sqName);
+                    boardEl.appendChild(sqDiv);
+                }
+            }
+            updateStatus();
+        }
+
+        function onSquareClick(sq) {
+            if (game.game_over() || game.turn() === 'b') return;
+
+            if (selectedSquare) {
+                const move = game.move({ from: selectedSquare, to: sq, promotion: 'q' });
+                selectedSquare = null;
+                renderBoard();
+                if (move && !game.game_over()) {
+                    statusEl.innerText = 'Думает компьютер...';
+                    setTimeout(makeBotMove, 400);
+                }
+            } else {
+                const piece = game.get(sq);
+                if (piece && piece.color === 'w') {
+                    selectedSquare = sq;
+                    renderBoard();
+                }
+            }
+        }
+
+        function makeBotMove() {
+            const moves = game.moves();
+            if (moves.length === 0) return;
+            // Простой выбор хода с приоритетом взятия фигур
+            const captures = moves.filter(m => m.includes('x'));
+            const chosen = captures.length > 0 
+                ? captures[Math.floor(Math.random() * captures.length)] 
+                : moves[Math.floor(Math.random() * moves.length)];
+            game.move(chosen);
+            renderBoard();
+        }
+
+        function updateStatus() {
+            if (game.in_checkmate()) statusEl.innerText = 'Мат! Игра окончена';
+            else if (game.in_draw()) statusEl.innerText = 'Ничья!';
+            else statusEl.innerText = game.turn() === 'w' ? 'Ваш ход (Белые)' : 'Ход компьютера';
+        }
+
+        function resetGame() {
+            game.reset();
+            selectedSquare = null;
+            renderBoard();
+        }
+
+        renderBoard();
+    </script>
+</body>
+</html>
